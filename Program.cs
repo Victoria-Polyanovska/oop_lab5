@@ -171,22 +171,37 @@ static class Program
     {
         while (true)
         {
-            string[] parts = Console.ReadLine().Split();
-            if (parts.Length == 5)
+            Console.Write("Введіть дату (рік місяць день години хвилини): ");
+            string input = Console.ReadLine();
+
+            if (TryParseDate(input, out Date date))
             {
-                int year, month, day, hours, minutes;
-                if (int.TryParse(parts[0], out year) &&
-                    int.TryParse(parts[1], out month) &&
-                    int.TryParse(parts[2], out day) &&
-                    int.TryParse(parts[3], out hours) &&
-                    int.TryParse(parts[4], out minutes))
-                {
-                    return new Date(year, month, day, hours, minutes);
-                }
+                return date;
             }
-            Console.Write("Невірний формат! Введіть ще раз: ");
+
+            Console.WriteLine("Невірний формат! Спробуйте ще раз.");
         }
     }
+
+    static bool TryParseDate(string input, out Date date)
+    {
+        date = null;
+        string[] parts = input.Split();
+
+        if (parts.Length == 5 &&
+            int.TryParse(parts[0], out int year) &&
+            int.TryParse(parts[1], out int month) &&
+            int.TryParse(parts[2], out int day) &&
+            int.TryParse(parts[3], out int hours) &&
+            int.TryParse(parts[4], out int minutes))
+        {
+            date = new Date(year, month, day, hours, minutes);
+            return true;
+        }
+
+        return false;
+    }
+
 
     static void PrintAirplane(Airplane airplane)
     {

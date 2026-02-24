@@ -33,41 +33,39 @@ class Date
     {
         return new DateTime(Year, Month, Day, Hours, Minutes, 0);
     }
+
+    public int TotalMinutes()
+    {
+        return (int)(ToDateTime() - new DateTime(Year, Month, Day)).TotalMinutes;
+    }
 }
 
 class Airplane
 {
     public string StartCity { get; set; }
     public string FinishCity { get; set; }
-    public Date StartDate { get; set; }
-    public Date FinishDate { get; set; }
+    public Date Start { get; set; }
+    public Date Finish { get; set; }
 
-    public Airplane() { }
-
-    public Airplane(string startCity, string finishCity, Date startDate, Date finishDate)
+    public Airplane(string startCity, string finishCity, Date start, Date finish)
     {
         StartCity = startCity;
         FinishCity = finishCity;
-        StartDate = startDate;
-        FinishDate = finishDate;
+        Start = start;
+        Finish = finish;
+    }
+}
+
+class AirplaneService
+{
+    public int GetTotalTime(Airplane airplane)
+    {
+        return airplane.Finish.TotalMinutes() - airplane.Start.TotalMinutes();
     }
 
-    public Airplane(Airplane other)
+    public bool IsArrivingToday(Airplane airplane)
     {
-        StartCity = other.StartCity;
-        FinishCity = other.FinishCity;
-        StartDate = new Date(other.StartDate);
-        FinishDate = new Date(other.FinishDate);
-    }
-
-    public int GetTotalTime()
-    {
-        return (int)(FinishDate.ToDateTime() - StartDate.ToDateTime()).TotalMinutes;
-    }
-
-    public bool IsArrivingToday()
-    {
-        return StartDate.Year == FinishDate.Year && StartDate.Month == FinishDate.Month && StartDate.Day == FinishDate.Day;
+        return airplane.Finish.ToDateTime().Date == DateTime.Now.Date;
     }
 }
 
@@ -90,6 +88,7 @@ static class Program
             return;
         }
 
+        AirplaneService service = new AirplaneService();
         bool running = true;
         while (running)
         {
@@ -106,22 +105,22 @@ static class Program
             switch (choice)
             {
                 case "1":
-                    PrintAirplanes(airplanes);
+                    PrintAirplanes(airplanes, service);
                     break;
                 case "2":
                     int min, max;
-                    if (GetAirplaneInfo(airplanes, out min, out max))
+                    if (GetAirplaneInfo(airplanes, service, out min, out max))
                         Console.WriteLine($"Найкоротший час: {min} хв, Найдовший час: {max} хв");
                     else
                         Console.WriteLine("Немає достатніх даних для аналізу.");
                     break;
                 case "3":
                     SortAirplanesByDate(airplanes);
-                    PrintAirplanes(airplanes);
+                    PrintAirplanes(airplanes, service);
                     break;
                 case "4":
-                    SortAirplanesByTotalTime(airplanes);
-                    PrintAirplanes(airplanes);
+                    SortAirplanesByTotalTime(airplanes, service);
+                    PrintAirplanes(airplanes, service);
                     break;
                 case "5":
                     running = false;
@@ -137,8 +136,7 @@ static class Program
     {
         Console.Write("Введіть кількість рейсів: ");
         string input = Console.ReadLine();
-        int n;
-        if (!int.TryParse(input, out n) || n <= 0)
+        if (!int.TryParse(input, out int n) || n <= 0)
         {
             Console.WriteLine("Невірне значення! Має бути додатне число.");
             return new Airplane[0];
@@ -171,37 +169,43 @@ static class Program
     {
         while (true)
         {
-            string[] parts = Console.ReadLine().Split();
-            if (parts.Length == 5)
-            {
-                int year, month, day, hours, minutes;
-                if (int.TryParse(parts[0], out year) &&
-                    int.TryParse(parts[1], out month) &&
-                    int.TryParse(parts[2], out day) &&
-                    int.TryParse(parts[3], out hours) &&
-                    int.TryParse(parts[4], out minutes))
-                {
-                    return new Date(year, month, day, hours, minutes);
-                }
-            }
-            Console.Write("Невірний формат! Введіть ще раз: ");
+            string input = Console.ReadLine();
+            if (TryParseDate(input, out Date date))
+                return date;
+
+            Console.WriteLine("Невірний формат! Спробуйте ще раз.");
         }
     }
 
-    static void PrintAirplane(Airplane airplane)
+    static bool TryParseDate(string input, out Date date)
     {
-        Console.WriteLine($"{airplane.StartCity} -> {airplane.FinishCity}, Час польоту: {airplane.GetTotalTime()} хв, Прибуття в цей же день: {airplane.IsArrivingToday()}");
-    }
-
-    static void PrintAirplanes(Airplane[] airplanes)
-    {
-        for (int i = 0; i < airplanes.Length; i++)
+        date = null;
+        string[] parts = input.Split();
+        if (parts.Length == 5 &&
+            int.TryParse(parts[0], out int year) &&
+            int.TryParse(parts[1], out int month) &&
+            int.TryParse(parts[2], out int day) &&
+            int.TryParse(parts[3], out int hours) &&
+            int.TryParse(parts[4], out int minutes))
         {
-            PrintAirplane(airplanes[i]);
+            date = new Date(year, month, day, hours, minutes);
+            return true;
         }
+        return false;
     }
 
-    static bool GetAirplaneInfo(Airplane[] airplanes, out int minTime, out int maxTime)
+    static void PrintAirplane(Airplane airplane, AirplaneService service)
+    {
+        Console.WriteLine($"{airplane.StartCity} -> {airplane.FinishCity}, Час польоту: {service.GetTotalTime(airplane)} хв, Прибуття сьогодні: {service.IsArrivingToday(airplane)}");
+    }
+
+    static void PrintAirplanes(Airplane[] airplanes, AirplaneService service)
+    {
+        foreach (var airplane in airplanes)
+            PrintAirplane(airplane, service);
+    }
+
+    static bool GetAirplaneInfo(Airplane[] airplanes, AirplaneService service, out int minTime, out int maxTime)
     {
         if (airplanes.Length == 0)
         {
@@ -211,9 +215,9 @@ static class Program
 
         minTime = int.MaxValue;
         maxTime = int.MinValue;
-        for (int i = 0; i < airplanes.Length; i++)
+        foreach (var airplane in airplanes)
         {
-            int time = airplanes[i].GetTotalTime();
+            int time = service.GetTotalTime(airplane);
             if (time < minTime) minTime = time;
             if (time > maxTime) maxTime = time;
         }
@@ -222,17 +226,11 @@ static class Program
 
     static void SortAirplanesByDate(Airplane[] airplanes)
     {
-        Array.Sort(airplanes, delegate (Airplane a, Airplane b)
-        {
-            return b.StartDate.ToDateTime().CompareTo(a.StartDate.ToDateTime());
-        });
+        Array.Sort(airplanes, (a, b) => a.Start.ToDateTime().CompareTo(b.Start.ToDateTime()));
     }
 
-    static void SortAirplanesByTotalTime(Airplane[] airplanes)
+    static void SortAirplanesByTotalTime(Airplane[] airplanes, AirplaneService service)
     {
-        Array.Sort(airplanes, delegate (Airplane a, Airplane b)
-        {
-            return a.GetTotalTime().CompareTo(b.GetTotalTime());
-        });
+        Array.Sort(airplanes, (a, b) => service.GetTotalTime(a).CompareTo(service.GetTotalTime(b)));
     }
 }
